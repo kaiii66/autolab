@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AUTORESEARCH_DIR="autoresearch"
-EXAMPLES_BASE="https://raw.githubusercontent.com/skypilot-org/skypilot/master/examples/autoresearch"
+# Load config if present
+if [ -f "config.env" ]; then
+    # shellcheck disable=SC1091
+    source config.env
+fi
 
-echo "=== Autoresearch + SkyPilot + W&B setup ==="
+# Derive RESEARCH_DIR from repo URL if not set
+RESEARCH_REPO="${RESEARCH_REPO:?Set RESEARCH_REPO in config.env or environment}"
+RESEARCH_DIR="${RESEARCH_DIR:-$(basename "$RESEARCH_REPO" .git)}"
+MAX_CLUSTERS="${MAX_CLUSTERS:-4}"
+
+echo "=== autolab setup ==="
+echo ""
+echo "  Research repo : $RESEARCH_REPO"
+echo "  Local dir     : $RESEARCH_DIR"
 echo ""
 
 # 1. Install uv if missing
@@ -60,18 +71,29 @@ fi
 echo "      Verifying cluster connectivity..."
 kubectl get nodes --no-headers | head -3 || { echo "ERROR: Cannot reach Kubernetes cluster."; exit 1; }
 
-# 5. Clone autoresearch
-echo "[5/9] Cloning karpathy/autoresearch..."
-if [ -d "$AUTORESEARCH_DIR" ]; then
-    echo "      Directory '$AUTORESEARCH_DIR' already exists, skipping clone."
+# 5. Clone research repo
+echo "[5/9] Cloning $RESEARCH_REPO..."
+if [ -d "$RESEARCH_DIR" ]; then
+    echo "      Directory '$RESEARCH_DIR' already exists, skipping clone."
 else
-    git clone https://github.com/karpathy/autoresearch.git "$AUTORESEARCH_DIR"
+    git clone "$RESEARCH_REPO" "$RESEARCH_DIR"
 fi
 
-# 6. Download SkyPilot experiment template and copy local instructions
-echo "[6/9] Downloading experiment.yaml and copying instructions.md..."
-curl -fsSL "$EXAMPLES_BASE/experiment.yaml" -o "$AUTORESEARCH_DIR/experiment.yaml"
-cp instructions.md "$AUTORESEARCH_DIR/instructions.md"
+# 6. Set up SkyPilot experiment template and copy instructions
+echo "[6/9] Setting up experiment template and instructions..."
+if [ -n "${SKYPILOT_TEMPLATE:-}" ]; then
+    if [[ "$SKYPILOT_TEMPLATE" == http* ]]; then
+        curl -fsSL "$SKYPILOT_TEMPLATE" -o "$RESEARCH_DIR/experiment.yaml"
+        echo "      Downloaded experiment.yaml from $SKYPILOT_TEMPLATE"
+    else
+        cp "$SKYPILOT_TEMPLATE" "$RESEARCH_DIR/experiment.yaml"
+        echo "      Copied experiment.yaml from $SKYPILOT_TEMPLATE"
+    fi
+elif [ ! -f "$RESEARCH_DIR/experiment.yaml" ]; then
+    echo "      No SKYPILOT_TEMPLATE set and no experiment.yaml found in $RESEARCH_DIR."
+    echo "      You'll need to create $RESEARCH_DIR/experiment.yaml before running experiments."
+fi
+cp instructions.md "$RESEARCH_DIR/instructions.md"
 
 # 7. Configure W&B experiment tracking
 echo "[7/9] Configuring W&B experiment tracking..."
@@ -81,28 +103,31 @@ if [ -z "${WANDB_API_KEY:-}" ]; then
     export WANDB_API_KEY
 fi
 if [ -z "${WANDB_PROJECT:-}" ]; then
-    echo "      Enter your W&B project name for experiment tracking [kwt/autoresearch]:"
+    echo "      Enter your W&B project name for experiment tracking (entity/project):"
     read -r WANDB_PROJECT
-    WANDB_PROJECT="${WANDB_PROJECT:-kwt/autoresearch}"
+    if [ -z "$WANDB_PROJECT" ]; then
+        echo "ERROR: WANDB_PROJECT is required. Please provide an entity/project name."
+        exit 1
+    fi
 fi
 echo "      W&B project: $WANDB_PROJECT"
 
-# Add wandb dependency to pyproject.toml
-if ! grep -q 'wandb' "$AUTORESEARCH_DIR/pyproject.toml"; then
+# Add wandb dependency if pyproject.toml exists and doesn't already have it
+if [ -f "$RESEARCH_DIR/pyproject.toml" ] && ! grep -q 'wandb' "$RESEARCH_DIR/pyproject.toml"; then
     sed -i.bak '/"torch==/a\
     "wandb>=0.19.0",
-' "$AUTORESEARCH_DIR/pyproject.toml"
-    rm -f "$AUTORESEARCH_DIR/pyproject.toml.bak"
+' "$RESEARCH_DIR/pyproject.toml"
+    rm -f "$RESEARCH_DIR/pyproject.toml.bak"
     echo "      Added wandb dependency to pyproject.toml"
 fi
 
-# Add W&B env vars to experiment.yaml
-if ! grep -q 'WANDB_PROJECT' "$AUTORESEARCH_DIR/experiment.yaml"; then
+# Add W&B env vars to experiment.yaml if present
+if [ -f "$RESEARCH_DIR/experiment.yaml" ] && ! grep -q 'WANDB_PROJECT' "$RESEARCH_DIR/experiment.yaml"; then
     sed -i.bak "/EXPERIMENT_DESC:/a\\
   WANDB_PROJECT: \"$WANDB_PROJECT\"\\
   WANDB_API_KEY: \"$WANDB_API_KEY\"
-" "$AUTORESEARCH_DIR/experiment.yaml"
-    rm -f "$AUTORESEARCH_DIR/experiment.yaml.bak"
+" "$RESEARCH_DIR/experiment.yaml"
+    rm -f "$RESEARCH_DIR/experiment.yaml.bak"
     echo "      Added W&B env vars to experiment.yaml"
 fi
 
@@ -122,9 +147,12 @@ else
     echo "[9/9] weave-claude-plugin already installed"
 fi
 if [ -z "${WEAVE_PROJECT:-}" ]; then
-    echo "      Enter your Weave project for Claude session tracing (entity/project) [kwt/autolab]:"
+    echo "      Enter your Weave project for Claude session tracing (entity/project):"
     read -r WEAVE_PROJECT
-    WEAVE_PROJECT="${WEAVE_PROJECT:-kwt/autolab}"
+    if [ -z "$WEAVE_PROJECT" ]; then
+        echo "ERROR: WEAVE_PROJECT is required. Please provide an entity/project name."
+        exit 1
+    fi
 fi
 echo "$WEAVE_PROJECT" | weave-claude-plugin install
 weave-claude-plugin config set wandb_api_key "$WANDB_API_KEY"
@@ -166,7 +194,8 @@ echo " Make sure KUBECONFIG is set in your shell:"
 echo ""
 echo "   export KUBECONFIG=$KUBECONFIG"
 echo ""
-echo " Open Claude Code/Codex/any agent in this directory, then paste this prompt:"
+echo " Open Claude Code/Codex/any agent in the $RESEARCH_DIR directory,"
+echo " then paste this prompt:"
 echo ""
 echo "   Read instructions.md and start running parallel experiments."
 echo ""

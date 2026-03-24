@@ -1,12 +1,12 @@
-# Parallel Autoresearch with SkyPilot
+# Parallel Research with SkyPilot
 
 You are an autonomous research agent running parallel GPU experiments via SkyPilot.
 
 ## Setup
 
-1. **Read the autoresearch rules**: Read `program.md` in this directory. It defines what you can/cannot modify, the goal (minimize `val_bpb`), and the simplicity criterion. Follow those rules.
+1. **Read the research program**: Read `program.md` in this directory. It defines what you can/cannot modify, the optimization target, and any constraints. Follow those rules.
 2. **Load the SkyPilot skill**: Fetch and follow the [SkyPilot skill](https://raw.githubusercontent.com/skypilot-org/skypilot/refs/heads/master/agent/skills/skypilot/SKILL.md) — run its "Before You Start" bootstrap to confirm SkyPilot is installed and credentials are configured.
-3. **Read the autoresearch codebase**: Read `README.md`, `prepare.py`, and `train.py` for full context.
+3. **Read the codebase**: Read `README.md` and any training/evaluation scripts referenced in `program.md` for full context.
 4. **Set infra to Kubernetes**: This setup uses CoreWeave via Kubernetes. Set `infra: kubernetes` in `experiment.yaml` under `resources`. Do not prompt the user for an infra preference.
 
 ## Launching Experiments
@@ -23,12 +23,12 @@ sky launch gpu-01 experiment.yaml --env EXPERIMENT_ID=exp-01 --env EXPERIMENT_DE
 sky exec gpu-01 experiment.yaml --env EXPERIMENT_ID=exp-02 --env EXPERIMENT_DESC="increase LR" -d
 ```
 
-**Workdir isolation**: SkyPilot snapshots the working directory at submission time. To run different `train.py` variants in parallel, copy files to a per-experiment folder and use `--workdir`:
+**Workdir isolation**: SkyPilot snapshots the working directory at submission time. To run different code variants in parallel, copy files to a per-experiment folder and use `--workdir`:
 ```bash
-mkdir -p /tmp/autoresearch/exp-03
-cp train.py prepare.py pyproject.toml experiment.yaml /tmp/autoresearch/exp-03/
-# edit /tmp/autoresearch/exp-03/train.py
-sky launch gpu-03 experiment.yaml --workdir /tmp/autoresearch/exp-03 --env EXPERIMENT_ID=exp-03 --env EXPERIMENT_DESC="wider model" -d -y
+mkdir -p /tmp/experiments/exp-03
+cp <relevant files> /tmp/experiments/exp-03/
+# edit files in /tmp/experiments/exp-03/
+sky launch gpu-03 experiment.yaml --workdir /tmp/experiments/exp-03 --env EXPERIMENT_ID=exp-03 --env EXPERIMENT_DESC="wider model" -d -y
 ```
 
 Keep at most **4 clusters** running at a time.
@@ -59,10 +59,10 @@ sky queue gpu-01     # jobs on a specific cluster
 Maintain a local `results.tsv` (tab-separated):
 
 ```
-experiment_id	status	val_bpb	memory_gb	description
-exp-01	keep	0.997900	44.0	baseline
-exp-02	discard	1.005000	44.0	switch to GeLU
-exp-03	crash	0.000000	0.0	double width (OOM)
+experiment_id	status	metric	description
+exp-01	keep	0.997900	baseline
+exp-02	discard	1.005000	switch to GeLU
+exp-03	crash	0.000000	double width (OOM)
 ```
 
 Status: `keep` (improvement), `discard` (no improvement), `crash` (failed).
@@ -72,12 +72,12 @@ Status: `keep` (improvement), `discard` (no improvement), `crash` (failed).
 LOOP FOREVER:
 
 1. **Check state**: Review `results.tsv`, `sky status`, `sky queue`.
-2. **Pick an untried idea**.
-3. **Prepare**: Copy code to a per-job folder, edit `train.py`.
+2. **Pick an untried idea** guided by `program.md`.
+3. **Prepare**: Copy code to a per-job folder, make your changes.
 4. **Submit** via `sky launch` or `sky exec` with a unique `EXPERIMENT_ID`, always detached (`-d`).
 5. **Don't wait** — move on to the next idea.
 6. **Periodically check** results via `sky logs` or SSH.
-   - `val_bpb` improved → copy winning `train.py` back, commit.
+   - Metric improved → copy winning code back, commit.
    - Otherwise → log as `discard`.
 7. **Tear down** idle clusters: `sky down gpu-01 -y`
 8. **Repeat**.
@@ -88,16 +88,16 @@ LOOP FOREVER:
 
 ## W&B Experiment Tracking
 
-Every `train.py` you generate **must** include W&B experiment tracking so that training metrics, hyperparameters, and system stats are logged automatically.
+Every training script you generate **must** include W&B experiment tracking so that training metrics, hyperparameters, and system stats are logged automatically.
 
 ### What to add
 
-**1. Initialize a W&B run** (at the top of `train.py`, after other imports):
+**1. Initialize a W&B run** (at the top of the training script, after other imports):
 
 ```python
 import wandb
 wandb.init(
-    project=os.environ.get("WANDB_PROJECT", "autoresearch"),
+    project=os.environ.get("WANDB_PROJECT", "research"),
     name=os.environ.get("EXPERIMENT_ID", "baseline"),
     notes=os.environ.get("EXPERIMENT_DESC", ""),
     config={...},  # all tunable hyperparameters
@@ -117,12 +117,12 @@ wandb.summary.update({...})  # final eval metrics
 wandb.finish()
 ```
 
-Read `train.py` to determine which hyperparameters belong in `config`, which per-step metrics to log, and which final eval metrics to put in `summary`. Log everything that is printed or used for decision-making.
+Read the training script to determine which hyperparameters belong in `config`, which per-step metrics to log, and which final eval metrics to put in `summary`. Log everything that is printed or used for decision-making.
 
 ### Rules
 
-- Do **NOT** remove W&B tracking lines when modifying `train.py`.
-- Always use `os.environ.get("WANDB_PROJECT", "autoresearch")` — never hardcode the project name.
+- Do **NOT** remove W&B tracking lines when modifying training scripts.
+- Always use `os.environ.get("WANDB_PROJECT", "research")` — never hardcode the project name.
 - `WANDB_API_KEY`, `WANDB_PROJECT`, `EXPERIMENT_ID`, and `EXPERIMENT_DESC` are passed as environment variables via `experiment.yaml` and `sky launch --env`.
 
 ## Cleanup
