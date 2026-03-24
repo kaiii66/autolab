@@ -8,6 +8,90 @@ You are an autonomous research agent running parallel GPU experiments via SkyPil
 2. **Load the SkyPilot skill**: Fetch and follow the [SkyPilot skill](https://raw.githubusercontent.com/skypilot-org/skypilot/refs/heads/master/agent/skills/skypilot/SKILL.md) — run its "Before You Start" bootstrap to confirm SkyPilot is installed and credentials are configured.
 3. **Read the autoresearch codebase**: Read `README.md`, `prepare.py`, and `train.py` for full context.
 4. **Set infra to Kubernetes**: This setup uses CoreWeave via Kubernetes. Set `infra: kubernetes` in `experiment.yaml` under `resources`. Do not prompt the user for an infra preference.
+5. **Instrument `train.py` with W&B tracking**: Every `train.py` you generate **must** include W&B experiment tracking so that training metrics, hyperparameters, and system stats are logged automatically. See [W&B Experiment Tracking](#wb-experiment-tracking) below for what to add.
+6. **Verify W&B instrumentation**: Run a short smoke test and use the W&B MCP to confirm metrics landed. See [Verify W&B Instrumentation](#verify-wb-instrumentation) below. Do **not** start the experiment loop until verification passes.
+
+## W&B Experiment Tracking
+
+### What to add
+
+**1. Initialize a W&B run** (at the top of `train.py`, after other imports):
+
+```python
+import wandb
+wandb.init(
+    project=os.environ.get("WANDB_PROJECT", "autoresearch"),
+    name=os.environ.get("EXPERIMENT_ID", "baseline"),
+    notes=os.environ.get("EXPERIMENT_DESC", ""),
+    config={...},  # all tunable hyperparameters
+)
+```
+
+**2. Log step metrics** (inside the training loop):
+
+```python
+wandb.log({...}, step=step)  # loss, learning rate, throughput, etc.
+```
+
+**3. Log final summary** (at the end, after evaluation):
+
+```python
+wandb.summary.update({...})  # final eval metrics
+wandb.finish()
+```
+
+Read `train.py` to determine which hyperparameters belong in `config`, which per-step metrics to log, and which final eval metrics to put in `summary`. Log everything that is printed or used for decision-making.
+
+### Rules
+
+- Do **NOT** remove W&B tracking lines when modifying `train.py`.
+- Always use `os.environ.get("WANDB_PROJECT", "autoresearch")` — never hardcode the project name.
+- `WANDB_API_KEY`, `WANDB_PROJECT`, `EXPERIMENT_ID`, and `EXPERIMENT_DESC` are passed as environment variables via `experiment.yaml` and `sky launch --env`.
+
+## Verify W&B Instrumentation
+
+After instrumenting `train.py` with W&B tracking, run **one short smoke test** to verify metrics actually land in W&B before starting the full experiment loop.
+
+1. **Submit a short trial** (~30 seconds of training):
+   ```bash
+   sky launch gpu-smoke experiment.yaml \
+     --env EXPERIMENT_ID=exp-smoke \
+     --env EXPERIMENT_DESC="smoke test - verify W&B instrumentation" \
+     -d -y
+   ```
+
+2. **Wait for completion** — monitor with `sky logs gpu-smoke` until the job finishes.
+
+3. **Verify via W&B MCP** — use the `query_wandb_tool` MCP tool to check the run landed correctly. The W&B project is set via the `WANDB_PROJECT` env var (format: `entity/project`).
+
+   Query for the smoke-test run and confirm:
+   - A run with `displayName` = `"exp-smoke"` exists
+   - Run `state` is `"finished"`
+   - `summaryMetrics` is non-empty and contains the final eval metrics you logged via `wandb.summary.update()`
+   - `config` is non-empty and contains the hyperparameters you passed to `wandb.init(config={...})`
+   - `_step` > 0 (step-level metrics were logged via `wandb.log()`)
+
+   Example GraphQL query:
+   ```graphql
+   query SmokeCheck($entity: String!, $project: String!, $filter: JSONString) {
+     project(name: $project, entityName: $entity) {
+       runs(first: 1, filters: $filter) {
+         edges { node { id name displayName state summaryMetrics config } }
+         pageInfo { endCursor hasNextPage }
+       }
+     }
+   }
+   ```
+   With variables: `{"entity": "<entity>", "project": "<project>", "filter": "{\"displayName\":{\"$eq\":\"exp-smoke\"}}"}`
+
+4. **If verification fails** — fix the `wandb.init()`, `wandb.log()`, or `wandb.summary.update()` calls in `train.py` and re-run the smoke test. Do not proceed until all checks pass.
+
+5. **Tear down** the smoke-test cluster:
+   ```bash
+   sky down gpu-smoke -y
+   ```
+
+6. **Proceed** to the experiment loop.
 
 ## Launching Experiments
 
@@ -85,45 +169,6 @@ LOOP FOREVER:
 **Timeout**: If a run exceeds 10 minutes, treat as failure. **Crashes**: Check logs, fix trivial issues and resubmit, or log as `crash`.
 
 **NEVER STOP**: Do NOT pause to ask the human if you should continue. Work *indefinitely* until manually stopped. If stuck, re-read the code, combine near-misses, try radical changes.
-
-## W&B Experiment Tracking
-
-Every `train.py` you generate **must** include W&B experiment tracking so that training metrics, hyperparameters, and system stats are logged automatically.
-
-### What to add
-
-**1. Initialize a W&B run** (at the top of `train.py`, after other imports):
-
-```python
-import wandb
-wandb.init(
-    project=os.environ.get("WANDB_PROJECT", "autoresearch"),
-    name=os.environ.get("EXPERIMENT_ID", "baseline"),
-    notes=os.environ.get("EXPERIMENT_DESC", ""),
-    config={...},  # all tunable hyperparameters
-)
-```
-
-**2. Log step metrics** (inside the training loop):
-
-```python
-wandb.log({...}, step=step)  # loss, learning rate, throughput, etc.
-```
-
-**3. Log final summary** (at the end, after evaluation):
-
-```python
-wandb.summary.update({...})  # final eval metrics
-wandb.finish()
-```
-
-Read `train.py` to determine which hyperparameters belong in `config`, which per-step metrics to log, and which final eval metrics to put in `summary`. Log everything that is printed or used for decision-making.
-
-### Rules
-
-- Do **NOT** remove W&B tracking lines when modifying `train.py`.
-- Always use `os.environ.get("WANDB_PROJECT", "autoresearch")` — never hardcode the project name.
-- `WANDB_API_KEY`, `WANDB_PROJECT`, `EXPERIMENT_ID`, and `EXPERIMENT_DESC` are passed as environment variables via `experiment.yaml` and `sky launch --env`.
 
 ## Cleanup
 
