@@ -1,6 +1,14 @@
-# Autoresearch + SkyPilot + W&B
+# autolab
 
-Run [karpathy/autoresearch](https://github.com/karpathy/autoresearch) experiments on CoreWeave GPUs via [SkyPilot](https://skypilot.co/), with [W&B](https://wandb.ai/) experiment tracking and [Weave](https://wandb.ai/site/weave) session tracing.
+Run autonomous AI research experiments on CoreWeave GPUs via [SkyPilot](https://skypilot.co/), with [W&B](https://wandb.ai/) experiment tracking and [Weave](https://wandb.ai/site/weave) session tracing.
+
+Point it at any research repo that has a `program.md` describing the research goals, and let an AI agent run parallel experiments autonomously.
+
+## How it works
+
+1. You provide a research repo (e.g. a training script + `program.md` describing what to optimize)
+2. `setup.sh` clones the repo, wires up SkyPilot + W&B + Weave
+3. An AI agent (Claude Code, Codex, etc.) reads `instructions.md` and `program.md`, then runs experiments in a loop — launching parallel GPU jobs, tracking results, and iterating
 
 ## Prerequisites
 
@@ -12,48 +20,73 @@ Run [karpathy/autoresearch](https://github.com/karpathy/autoresearch) experiment
 | **CoreWeave kubeconfig** | Save to `~/.kube/config-cw*` — download from your CoreWeave dashboard |
 | **W&B API key** | Get yours at [wandb.ai/authorize](https://wandb.ai/authorize) |
 
-## Setup
+## Quick start
+
+1. Copy the example config and fill in your research repo:
+
+```bash
+cp config.env.example config.env
+# edit config.env — at minimum set RESEARCH_REPO
+```
+
+2. Run setup:
 
 ```bash
 ./setup.sh
 ```
 
-The script will:
-
-1. Install [uv](https://github.com/astral-sh/uv) (if missing)
-2. Install [SkyPilot](https://skypilot.co/) via uv (if missing)
-3. Install [socat](https://linux.die.net/man/1/socat) (if missing) — required for SkyPilot Kubernetes mode
-4. Auto-detect your CoreWeave kubeconfig and verify cluster connectivity
-5. Clone [karpathy/autoresearch](https://github.com/karpathy/autoresearch)
-6. Download the SkyPilot experiment template and agent instructions
-7. Configure [W&B](https://docs.wandb.ai/models) experiment tracking — prompts for your W&B API key and project name (default: `kwt/autoresearch`)
-8. Verify npm is available
-9. Install and configure the [Weave Claude Code plugin](https://github.com/wandb/claude_code_weave_plugin) — prompts for your Weave project (default: `kwt/autolab`) and sets your W&B API key
-
-> **Tip:** For all prompts you can press Enter to accept the default value shown in brackets. You can also skip prompts entirely by setting environment variables before running the script:
-> ```bash
-> export WANDB_API_KEY="your-key"
-> export WANDB_PROJECT="kwt/autoresearch"
-> export WEAVE_PROJECT="kwt/autolab"
-> ./setup.sh
-> ```
-
-## Usage
-
-Make sure `KUBECONFIG` is set (the setup script prints the value to use):
+3. Start the agent:
 
 ```bash
 export KUBECONFIG=~/.kube/config-cw<your-cluster>
+cd <research-dir>
 claude
 ```
 
-Then paste this prompt:
+Then paste:
 
 ```
 Read instructions.md and start running parallel experiments.
 ```
 
-Experiments will run on CoreWeave Kubernetes automatically.
+## Configuration
+
+All settings live in `config.env` (see `config.env.example`). You can also set them as environment variables:
+
+```bash
+export RESEARCH_REPO="https://github.com/your-org/your-research.git"
+export WANDB_API_KEY="your-key"
+export WANDB_PROJECT="entity/project"
+export WEAVE_PROJECT="entity/project"
+./setup.sh
+```
+
+### What your research repo needs
+
+- **`program.md`** — Describes the research goal, optimization target, what files can be modified, and any constraints. This is what the agent reads to understand what to do.
+- **A training/evaluation script** — The code the agent will modify and run.
+- **`experiment.yaml`** (optional) — A SkyPilot task template. If not present, set `SKYPILOT_TEMPLATE` in `config.env` to point to one.
+
+## Docker (recommended for autonomous runs)
+
+Run the agent in a container with full permissions — no interactive approval needed:
+
+```bash
+docker build -t autolab .
+
+docker run -it \
+  -v ~/.ssh:/home/autolab/.ssh:ro \
+  -v /path/to/kube-configs:/home/autolab/.kube:ro \
+  -v $(pwd)/config.env:/home/autolab/app/config.env:ro \
+  -e ANTHROPIC_API_KEY \
+  -e WANDB_API_KEY \
+  -e KUBECONFIG=/home/autolab/.kube/your-kubeconfig \
+  autolab
+```
+
+The container handles all setup automatically — clones the research repo, configures SkyPilot + W&B, and launches Claude Code in headless mode.
+
+Weave session traces go to the `WEAVE_PROJECT` set in `config.env`, keeping autonomous runs separate from your local Claude Code traces.
 
 ## Useful commands
 

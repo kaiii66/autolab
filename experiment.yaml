@@ -1,0 +1,31 @@
+resources:
+  accelerators: {H100:1, H200:1}
+  cloud: coreweave
+  image_id: docker:nvcr.io/nvidia/pytorch:24.07-py3
+
+workdir: .
+
+envs:
+  EXPERIMENT_ID: baseline
+  EXPERIMENT_DESC: "baseline run"
+
+setup: |
+  pip install uv
+  uv sync
+  uv run prepare.py --skip-baseline
+
+run: |
+  uv run serve.py 2>&1 | tee run.log
+  EXIT_CODE=${PIPESTATUS[0]}
+
+  if [ $EXIT_CODE -ne 0 ]; then
+    echo "EXPERIMENT_STATUS: crash"
+  else
+    THROUGHPUT=$(grep "^request_throughput:" run.log | awk '{print $2}')
+    P95_TTFT=$(grep "^p95_ttft_ms:" run.log | awk '{print $2}')
+    GSM8K=$(grep "^gsm8k_em:" run.log | awk '{print $2}')
+    FORMAT=$(grep "^format_valid_rate:" run.log | awk '{print $2}')
+
+    echo "EXPERIMENT_STATUS: done"
+    echo "EXPERIMENT_RESULT: ${EXPERIMENT_ID} throughput=${THROUGHPUT} p95_ttft=${P95_TTFT} gsm8k=${GSM8K} format=${FORMAT}"
+  fi
