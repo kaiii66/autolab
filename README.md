@@ -26,9 +26,17 @@ The script will:
 4. Auto-detect your CoreWeave kubeconfig and verify cluster connectivity
 5. Clone [karpathy/autoresearch](https://github.com/karpathy/autoresearch)
 6. Download the SkyPilot experiment template and agent instructions
-7. Configure [W&B](https://docs.wandb.ai/models) experiment tracking — prompts for your W&B API key
+7. Configure [W&B](https://docs.wandb.ai/models) experiment tracking — prompts for your W&B API key and project name (default: `kwt/autoresearch`)
 8. Verify npm is available
-9. Install and configure the [Weave Claude Code plugin](https://github.com/wandb/claude_code_weave_plugin) — prompts for your Weave project and W&B API key
+9. Install and configure the [Weave Claude Code plugin](https://github.com/wandb/claude_code_weave_plugin) — prompts for your Weave project (default: `kwt/autolab`) and sets your W&B API key
+
+> **Tip:** For all prompts you can press Enter to accept the default value shown in brackets. You can also skip prompts entirely by setting environment variables before running the script:
+> ```bash
+> export WANDB_API_KEY="your-key"
+> export WANDB_PROJECT="kwt/autoresearch"
+> export WEAVE_PROJECT="kwt/autolab"
+> ./setup.sh
+> ```
 
 ## Usage
 
