@@ -80,7 +80,11 @@ if [ -z "${WANDB_API_KEY:-}" ]; then
     read -r WANDB_API_KEY
     export WANDB_API_KEY
 fi
-WANDB_PROJECT="${WANDB_PROJECT:-autoresearch}"
+if [ -z "${WANDB_PROJECT:-}" ]; then
+    echo "      Enter your W&B project name for experiment tracking [kwt/autoresearch]:"
+    read -r WANDB_PROJECT
+    WANDB_PROJECT="${WANDB_PROJECT:-kwt/autoresearch}"
+fi
 echo "      W&B project: $WANDB_PROJECT"
 
 # Add wandb dependency to pyproject.toml
@@ -117,7 +121,14 @@ if ! command -v weave-claude-plugin &>/dev/null; then
 else
     echo "[9/9] weave-claude-plugin already installed"
 fi
-weave-claude-plugin install
+if [ -z "${WEAVE_PROJECT:-}" ]; then
+    echo "      Enter your Weave project for Claude session tracing (entity/project) [kwt/autolab]:"
+    read -r WEAVE_PROJECT
+    WEAVE_PROJECT="${WEAVE_PROJECT:-kwt/autolab}"
+fi
+echo "$WEAVE_PROJECT" | weave-claude-plugin install
+weave-claude-plugin config set wandb_api_key "$WANDB_API_KEY"
+weave-claude-plugin config set weave_project "$WEAVE_PROJECT"
 
 # TODO: Remove this patch once upstream fix lands (wandb/claude_code_weave_plugin).
 # GNU netcat (installed above for SkyPilot) shadows macOS BSD nc in PATH.
@@ -154,10 +165,6 @@ echo ""
 echo " Make sure KUBECONFIG is set in your shell:"
 echo ""
 echo "   export KUBECONFIG=$KUBECONFIG"
-echo ""
-echo " Then change into the working directory:"
-echo ""
-echo "   cd $AUTORESEARCH_DIR"
 echo ""
 echo " Open Claude Code/Codex/any agent in this directory, then paste this prompt:"
 echo ""
