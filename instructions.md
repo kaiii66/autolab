@@ -13,9 +13,11 @@ You are an autonomous research agent running parallel GPU experiments via SkyPil
 
 Use the SkyPilot skill for all infrastructure operations. The template `experiment.yaml` defines a single experiment run. Name clusters `gpu-01`, `gpu-02`, etc. — each cluster can run multiple experiments over time.
 
+**Always use `-i 10 --down`** on `sky launch` commands. This auto-destroys clusters after 10 minutes with no queued or running jobs, preventing orphaned GPU pods if the orchestrator crashes.
+
 **Launch a cluster:**
 ```bash
-sky launch gpu-01 experiment.yaml --env EXPERIMENT_ID=exp-01 --env EXPERIMENT_DESC="baseline" -d -y
+sky launch gpu-01 experiment.yaml --env EXPERIMENT_ID=exp-01 --env EXPERIMENT_DESC="baseline" -i 10 --down -d -y
 ```
 
 **Pipeline experiments on the same cluster** (back-to-back via the job queue):
@@ -28,7 +30,7 @@ sky exec gpu-01 experiment.yaml --env EXPERIMENT_ID=exp-02 --env EXPERIMENT_DESC
 mkdir -p /tmp/experiments/exp-03
 cp <relevant files> /tmp/experiments/exp-03/
 # edit files in /tmp/experiments/exp-03/
-sky launch gpu-03 experiment.yaml --workdir /tmp/experiments/exp-03 --env EXPERIMENT_ID=exp-03 --env EXPERIMENT_DESC="wider model" -d -y
+sky launch gpu-03 experiment.yaml --workdir /tmp/experiments/exp-03 --env EXPERIMENT_ID=exp-03 --env EXPERIMENT_DESC="wider model" -i 10 --down -d -y
 ```
 
 Keep at most **MAX_CLUSTERS_PLACEHOLDER clusters** running at a time.
