@@ -31,7 +31,7 @@ cp <relevant files> /tmp/experiments/exp-03/
 sky launch gpu-03 experiment.yaml --workdir /tmp/experiments/exp-03 --env EXPERIMENT_ID=exp-03 --env EXPERIMENT_DESC="wider model" -d -y
 ```
 
-Keep at most **4 clusters** running at a time.
+Keep at most **MAX_CLUSTERS_PLACEHOLDER clusters** running at a time.
 
 ## Checking Results
 
@@ -97,6 +97,7 @@ Every training script you generate **must** include W&B experiment tracking so t
 ```python
 import wandb
 wandb.init(
+    entity=os.environ.get("WANDB_ENTITY", None),
     project=os.environ.get("WANDB_PROJECT", "research"),
     name=os.environ.get("EXPERIMENT_ID", "baseline"),
     notes=os.environ.get("EXPERIMENT_DESC", ""),
@@ -123,7 +124,7 @@ Read the training script to determine which hyperparameters belong in `config`, 
 
 - Do **NOT** remove W&B tracking lines when modifying training scripts.
 - Always use `os.environ.get("WANDB_PROJECT", "research")` — never hardcode the project name.
-- `WANDB_API_KEY`, `WANDB_PROJECT`, `EXPERIMENT_ID`, and `EXPERIMENT_DESC` are passed as environment variables via `experiment.yaml` and `sky launch --env`.
+- `WANDB_API_KEY`, `WANDB_ENTITY`, `WANDB_PROJECT`, `EXPERIMENT_ID`, and `EXPERIMENT_DESC` are passed as environment variables via `experiment.yaml` and `sky launch --env`.
 
 ## Cleanup
 

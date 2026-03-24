@@ -67,6 +67,27 @@ export WEAVE_PROJECT="entity/project"
 - **A training/evaluation script** — The code the agent will modify and run.
 - **`experiment.yaml`** (optional) — A SkyPilot task template. If not present, set `SKYPILOT_TEMPLATE` in `config.env` to point to one.
 
+## Docker (recommended for autonomous runs)
+
+Run the agent in a container with full permissions — no interactive approval needed:
+
+```bash
+docker build -t autolab .
+
+docker run -it \
+  -v ~/.ssh:/home/autolab/.ssh:ro \
+  -v /path/to/kube-configs:/home/autolab/.kube:ro \
+  -v $(pwd)/config.env:/home/autolab/app/config.env:ro \
+  -e ANTHROPIC_API_KEY \
+  -e WANDB_API_KEY \
+  -e KUBECONFIG=/home/autolab/.kube/your-kubeconfig \
+  autolab
+```
+
+The container handles all setup automatically — clones the research repo, configures SkyPilot + W&B, and launches Claude Code in headless mode.
+
+Weave session traces go to the `WEAVE_PROJECT` set in `config.env`, keeping autonomous runs separate from your local Claude Code traces.
+
 ## Useful commands
 
 ```bash

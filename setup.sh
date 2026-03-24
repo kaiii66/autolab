@@ -93,7 +93,7 @@ elif [ ! -f "$RESEARCH_DIR/experiment.yaml" ]; then
     echo "      No SKYPILOT_TEMPLATE set and no experiment.yaml found in $RESEARCH_DIR."
     echo "      You'll need to create $RESEARCH_DIR/experiment.yaml before running experiments."
 fi
-cp instructions.md "$RESEARCH_DIR/instructions.md"
+sed "s/MAX_CLUSTERS_PLACEHOLDER/$MAX_CLUSTERS/" instructions.md > "$RESEARCH_DIR/instructions.md"
 
 # 7. Configure W&B experiment tracking
 echo "[7/9] Configuring W&B experiment tracking..."
