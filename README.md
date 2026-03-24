@@ -44,7 +44,6 @@ Make sure `KUBECONFIG` is set (the setup script prints the value to use):
 
 ```bash
 export KUBECONFIG=~/.kube/config-cw<your-cluster>
-cd autoresearch
 claude
 ```
 
