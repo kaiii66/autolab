@@ -14,4 +14,5 @@ docker run -it \
   -e WANDB_API_KEY \
   -e KUBECONFIG="/home/autolab/.kube/${KUBECONFIG_FILE:-CWKubeconfig_ray}" \
   ${EXAMPLE:+-e EXAMPLE="$EXAMPLE"} \
+  ${BRANCH:+-e BRANCH="$BRANCH"} \
   autolab

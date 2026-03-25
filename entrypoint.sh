@@ -35,6 +35,7 @@ fi
 RESEARCH_REPO="${RESEARCH_REPO:?Set RESEARCH_REPO in config.env or environment}"
 RESEARCH_DIR="${RESEARCH_DIR:-$(basename "$RESEARCH_REPO" .git)}"
 MAX_CLUSTERS="${MAX_CLUSTERS:-4}"
+BRANCH="${BRANCH:-}"
 
 echo "=== autolab container setup ==="
 echo ""
@@ -64,6 +65,12 @@ if [ -d "/home/autolab/app/$RESEARCH_DIR" ]; then
     echo "      Directory '$RESEARCH_DIR' already exists, skipping clone."
 else
     git clone "$RESEARCH_REPO" "/home/autolab/app/$RESEARCH_DIR"
+fi
+if [ -n "$BRANCH" ]; then
+    cd "/home/autolab/app/$RESEARCH_DIR"
+    git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
+    echo "      Branch: $BRANCH"
+    cd -
 fi
 
 # 3. Set up experiment template and copy instructions

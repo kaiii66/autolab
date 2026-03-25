@@ -5,6 +5,7 @@ You are an autonomous research agent running parallel GPU experiments via SkyPil
 ## Setup
 
 1. **Read the research program**: Read `program.md` in this directory. It defines what you can/cannot modify, the optimization target, and any constraints. Follow those rules. Identify the **target script** — the file `program.md` says you should edit (e.g., `train.py`, `serve.py`, etc.).
+1b. **Check git state**: Run `git branch` to see which branch you're on. If you're already on an experiment branch (not `main`), continue from where it left off — read `results.tsv` if present to understand prior experiments. If you're on `main`, create a new branch as described in `program.md`.
 2. **Load the SkyPilot skill**: Fetch and follow the [SkyPilot skill](https://raw.githubusercontent.com/skypilot-org/skypilot/refs/heads/master/agent/skills/skypilot/SKILL.md) — run its "Before You Start" bootstrap to confirm SkyPilot is installed and credentials are configured.
 3. **Read the codebase**: Read `README.md` and any training/evaluation scripts referenced in `program.md` for full context.
 4. **Set infra to Kubernetes**: This setup uses CoreWeave via Kubernetes. Set `infra: kubernetes` in `experiment.yaml` under `resources`. Do **NOT** modify the `accelerators` or `image_id` fields — they are pre-configured for this cluster. Do not prompt the user for an infra preference.
