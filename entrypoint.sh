@@ -26,8 +26,8 @@ done 2>/dev/null || true
 
 export ANTHROPIC_API_KEY WANDB_API_KEY
 
-# Load config (overrides example if both provided)
-if [ -f /home/autolab/app/config.env ]; then
+# Load config (skip if an example was loaded)
+if [ -z "$EXAMPLE" ] && [ -f /home/autolab/app/config.env ]; then
     # shellcheck disable=SC1091
     source /home/autolab/app/config.env
 fi
@@ -110,8 +110,8 @@ echo "[5/6] Configuring Weave plugin..."
 WEAVE_PROJECT="${WEAVE_PROJECT:-}"
 if [ -n "$WEAVE_PROJECT" ]; then
     echo "$WEAVE_PROJECT" | weave-claude-plugin install
-    weave-claude-plugin config set wandb_api_key "$WANDB_API_KEY"
-    weave-claude-plugin config set weave_project "$WEAVE_PROJECT"
+    weave-claude-plugin config set wandb_api_key "$WANDB_API_KEY" > /dev/null
+    weave-claude-plugin config set weave_project "$WEAVE_PROJECT" > /dev/null
     echo "      Weave project: $WEAVE_PROJECT"
     echo "      W&B API key:   ${WANDB_API_KEY:0:10}..."
 else
