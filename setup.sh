@@ -20,25 +20,25 @@ echo ""
 
 # 1. Install uv if missing
 if ! command -v uv &>/dev/null; then
-    echo "[1/9] Installing uv..."
+    echo "[1/10] Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH="${UV_TOOL_BIN_DIR:-$HOME/.local/bin}:$HOME/.cargo/bin:$PATH"
 else
-    echo "[1/9] uv already installed ($(uv --version))"
+    echo "[1/10] uv already installed ($(uv --version))"
 fi
 
 # 2. Install SkyPilot if missing
 if ! command -v sky &>/dev/null; then
-    echo "[2/9] Installing SkyPilot via uv..."
+    echo "[2/10] Installing SkyPilot via uv..."
     uv tool install skypilot
     export PATH="${UV_TOOL_BIN_DIR:-$HOME/.local/bin}:$HOME/.cargo/bin:$PATH"
 else
-    echo "[2/9] SkyPilot already installed ($(sky --version 2>/dev/null || echo 'unknown version'))"
+    echo "[2/10] SkyPilot already installed ($(sky --version 2>/dev/null || echo 'unknown version'))"
 fi
 
 # 3. Install socat and GNU netcat (required for SkyPilot Kubernetes portforward mode)
 if ! command -v socat &>/dev/null || ! command -v netcat &>/dev/null; then
-    echo "[3/9] Installing socat and netcat..."
+    echo "[3/10] Installing socat and netcat..."
     if command -v brew &>/dev/null; then
         brew install socat netcat
     elif command -v apt-get &>/dev/null; then
@@ -49,11 +49,11 @@ if ! command -v socat &>/dev/null || ! command -v netcat &>/dev/null; then
         exit 1
     fi
 else
-    echo "[3/9] socat and netcat already installed"
+    echo "[3/10] socat and netcat already installed"
 fi
 
 # 4. Configure CoreWeave kubeconfig
-echo "[4/9] Configuring CoreWeave Kubernetes..."
+echo "[4/10] Configuring CoreWeave Kubernetes..."
 if [ -z "${KUBECONFIG:-}" ]; then
     CW_CONFIG=$(ls ~/.kube/config-cw* 2>/dev/null | head -1)
     if [ -n "$CW_CONFIG" ]; then
@@ -72,7 +72,7 @@ echo "      Verifying cluster connectivity..."
 kubectl get nodes --no-headers | head -3 || { echo "ERROR: Cannot reach Kubernetes cluster."; exit 1; }
 
 # 5. Clone research repo
-echo "[5/9] Cloning $RESEARCH_REPO..."
+echo "[5/10] Cloning $RESEARCH_REPO..."
 if [ -d "$RESEARCH_DIR" ]; then
     echo "      Directory '$RESEARCH_DIR' already exists, skipping clone."
 else
@@ -80,7 +80,7 @@ else
 fi
 
 # 6. Set up SkyPilot experiment template and copy instructions
-echo "[6/9] Setting up experiment template and instructions..."
+echo "[6/10] Setting up experiment template and instructions..."
 if [ -n "${SKYPILOT_TEMPLATE:-}" ]; then
     if [[ "$SKYPILOT_TEMPLATE" == http* ]]; then
         curl -fsSL "$SKYPILOT_TEMPLATE" -o "$RESEARCH_DIR/experiment.yaml"
@@ -96,7 +96,7 @@ fi
 sed "s/MAX_CLUSTERS_PLACEHOLDER/$MAX_CLUSTERS/" instructions.md > "$RESEARCH_DIR/instructions.md"
 
 # 7. Configure W&B experiment tracking
-echo "[7/9] Configuring W&B experiment tracking..."
+echo "[7/10] Configuring W&B experiment tracking..."
 if [ -z "${WANDB_API_KEY:-}" ]; then
     echo "      Enter your W&B API key (https://wandb.ai/authorize):"
     read -r WANDB_API_KEY
@@ -133,18 +133,18 @@ fi
 
 # 8. Check for Node.js / npm (required by Weave plugin)
 if ! command -v npm &>/dev/null; then
-    echo "[8/9] ERROR: npm not found. Install Node.js (https://nodejs.org) and re-run."
+    echo "[8/10] ERROR: npm not found. Install Node.js (https://nodejs.org) and re-run."
     exit 1
 else
-    echo "[8/9] npm available ($(npm --version))"
+    echo "[8/10] npm available ($(npm --version))"
 fi
 
 # 9. Install Weave Claude Code plugin
 if ! command -v weave-claude-plugin &>/dev/null; then
-    echo "[9/9] Installing weave-claude-plugin..."
+    echo "[9/10] Installing weave-claude-plugin..."
     npm install -g weave-claude-plugin
 else
-    echo "[9/9] weave-claude-plugin already installed"
+    echo "[9/10] weave-claude-plugin already installed"
 fi
 if [ -z "${WEAVE_PROJECT:-}" ]; then
     echo "      Enter your Weave project for Claude session tracing (entity/project):"
@@ -166,6 +166,19 @@ if [ -f "$HOOK_HANDLER" ] && grep -q 'nc -U' "$HOOK_HANDLER"; then
     sed -i.bak 's|nc -U|/usr/bin/nc -U|g' "$HOOK_HANDLER"
     rm -f "$HOOK_HANDLER.bak"
     echo "      Patched Weave hook to use /usr/bin/nc (BSD netcat)"
+fi
+
+# 10. Register W&B MCP server for Claude Code (hosted endpoint, no local install needed)
+echo "[10/10] Configuring W&B MCP server for Claude Code..."
+if command -v claude &>/dev/null; then
+    claude mcp add --transport http -s project wandb https://mcp.withwandb.com/mcp \
+        -H "Authorization: Bearer $WANDB_API_KEY" 2>/dev/null \
+        && echo "      W&B MCP server registered (project scope)" \
+        || echo "      WARNING: Failed to register W&B MCP server. You can add it manually later."
+else
+    echo "      Claude Code CLI not found — skipping MCP registration."
+    echo "      Install Claude Code, then run:"
+    echo "        claude mcp add --transport http -s project wandb https://mcp.withwandb.com/mcp -H \"Authorization: Bearer \$WANDB_API_KEY\""
 fi
 
 echo ""
