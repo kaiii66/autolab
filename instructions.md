@@ -63,7 +63,7 @@ After instrumenting the target script with W&B tracking, run **one short smoke t
    ```
    **Important:** Use `-c gpu-01` so the cluster is reusable for the experiment loop. Do NOT use auto-generated names.
 
-2. **Wait for completion** — monitor with `sky logs gpu-smoke` until the job finishes.
+2. **Wait for completion** — monitor with `sky logs gpu-01` until the job finishes.
 
 3. **Verify via W&B MCP** — use the `query_wandb_tool` MCP tool to check the run landed correctly. The W&B project is set via the `WANDB_PROJECT` env var (format: `entity/project`).
 
