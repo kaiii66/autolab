@@ -164,9 +164,14 @@ Run experiments in **batches** across all available clusters. Each batch fills e
 LOOP FOREVER:
 
 1. **Check state**: Review `results.tsv`, `sky status`, `sky queue`.
-2. **Plan a batch**: Pick up to MAX_CLUSTERS_PLACEHOLDER untried ideas guided by `program.md`. Each idea becomes one experiment in the batch.
+2. **Plan a batch**: Pick exactly MAX_CLUSTERS_PLACEHOLDER ideas — one per cluster. You have MAX_CLUSTERS_PLACEHOLDER clusters (gpu-01 through gpu-0MAX_CLUSTERS_PLACEHOLDER). **Always use all of them** to maximize parallelism.
 3. **Prepare all experiments**: For each idea, copy code to a per-job folder (`/tmp/experiments/exp-NN/`) and make your changes.
-4. **Submit the entire batch**: For each experiment, run `sky exec gpu-NN experiment.yaml --workdir /tmp/experiments/exp-NN --env EXPERIMENT_ID=exp-NN --env EXPERIMENT_DESC="..." -d`. Use `-d` (detached) so submissions don't block. If a cluster doesn't exist yet, use `sky launch -c gpu-NN ... -i 30 --down -d -y` instead.
+4. **Submit the entire batch**: Submit one experiment to each cluster. Each cluster runs a different experiment simultaneously:
+   ```bash
+   sky exec gpu-01 experiment.yaml --workdir /tmp/experiments/exp-01 --env EXPERIMENT_ID=exp-01 --env EXPERIMENT_DESC="..." -d
+   sky exec gpu-02 experiment.yaml --workdir /tmp/experiments/exp-02 --env EXPERIMENT_ID=exp-02 --env EXPERIMENT_DESC="..." -d
+   ```
+   Use `-d` (detached) so submissions don't block. If a cluster doesn't exist yet, use `sky launch -c gpu-NN ... -i 30 --down -d -y` instead. **Do NOT queue multiple jobs on the same cluster** — spread them across all available clusters.
 5. **Poll until all finish**: Do **NOT** block on `sky logs`. Instead, poll every 30-60 seconds:
    ```bash
    sky queue gpu-01 2>&1 | tail -5
