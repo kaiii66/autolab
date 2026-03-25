@@ -20,6 +20,9 @@ USER autolab
 # Git identity for commits made by the agent
 RUN git config --global user.email "autolab@autolab.ai" && \
     git config --global user.name "Autolab Agent"
+
+# Writable .ssh dir (SkyPilot needs to write ~/.ssh/config)
+RUN mkdir -p /home/autolab/.ssh && chmod 700 /home/autolab/.ssh
 WORKDIR /home/autolab
 
 # uv (Python package manager)

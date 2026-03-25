@@ -20,9 +20,34 @@ Point it at any research repo that has a `program.md` describing the research go
 | **CoreWeave kubeconfig** | Save to `~/.kube/config-cw*` — download from your CoreWeave dashboard |
 | **W&B API key** | Get yours at [wandb.ai/authorize](https://wandb.ai/authorize) |
 
+## Examples
+
+The `examples/` folder has ready-to-use configs:
+
+| Example | Research repo | What it optimizes |
+|---|---|---|
+| **autoresearch** | [karpathy/autoresearch](https://github.com/karpathy/autoresearch) | LLM training — minimize val_bpb |
+| **autoinference** | (your repo) | LLM inference — optimize throughput/latency |
+
+To use an example, either copy its config or pass `--example` to Docker:
+
+```bash
+# Option A: copy config locally
+cp examples/autoresearch/config.env config.env
+# edit config.env — set your W&B keys
+
+# Option B: pass as env var to Docker (no config.env needed)
+docker run -it \
+  -e EXAMPLE=autoresearch \
+  -e ANTHROPIC_API_KEY -e WANDB_API_KEY \
+  -e WANDB_ENTITY=your-entity \
+  ...
+  autolab
+```
+
 ## Quick start
 
-1. Copy the example config and fill in your research repo:
+1. Copy a config from `examples/` or start from the template:
 
 ```bash
 cp config.env.example config.env
@@ -56,7 +81,8 @@ All settings live in `config.env` (see `config.env.example`). You can also set t
 ```bash
 export RESEARCH_REPO="https://github.com/your-org/your-research.git"
 export WANDB_API_KEY="your-key"
-export WANDB_PROJECT="entity/project"
+export WANDB_ENTITY="your-entity"
+export WANDB_PROJECT="project-name"
 export WEAVE_PROJECT="entity/project"
 ./setup.sh
 ```

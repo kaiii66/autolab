@@ -1,14 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --example flag: load a bundled example config
+EXAMPLE="${EXAMPLE:-}"
+if [ -n "$EXAMPLE" ]; then
+    EXAMPLE_DIR="/home/autolab/app/examples/$EXAMPLE"
+    if [ ! -d "$EXAMPLE_DIR" ]; then
+        echo "ERROR: Example '$EXAMPLE' not found. Available examples:"
+        ls /home/autolab/app/examples/
+        exit 1
+    fi
+    echo "Loading example: $EXAMPLE"
+    # shellcheck disable=SC1090
+    source "$EXAMPLE_DIR/config.env"
+fi
+
+# Copy SSH keys from mounted read-only paths into writable .ssh dir
+for key in /home/autolab/.ssh-mount/*; do
+    [ -f "$key" ] && cp "$key" /home/autolab/.ssh/ && chmod 600 /home/autolab/.ssh/"$(basename "$key")"
+done 2>/dev/null || true
+
 # Required env vars
 : "${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY}"
 : "${WANDB_API_KEY:?Set WANDB_API_KEY}"
 
 export ANTHROPIC_API_KEY WANDB_API_KEY
 
-# Load config
-if [ -f /home/autolab/app/config.env ]; then
+# Load config (skip if an example was loaded)
+if [ -z "$EXAMPLE" ] && [ -f /home/autolab/app/config.env ]; then
     # shellcheck disable=SC1091
     source /home/autolab/app/config.env
 fi
@@ -91,8 +110,8 @@ echo "[5/6] Configuring Weave plugin..."
 WEAVE_PROJECT="${WEAVE_PROJECT:-}"
 if [ -n "$WEAVE_PROJECT" ]; then
     echo "$WEAVE_PROJECT" | weave-claude-plugin install
-    weave-claude-plugin config set wandb_api_key "$WANDB_API_KEY"
-    weave-claude-plugin config set weave_project "$WEAVE_PROJECT"
+    weave-claude-plugin config set wandb_api_key "$WANDB_API_KEY" > /dev/null
+    weave-claude-plugin config set weave_project "$WEAVE_PROJECT" > /dev/null
     echo "      Weave project: $WEAVE_PROJECT"
     echo "      W&B API key:   ${WANDB_API_KEY:0:10}..."
 else
