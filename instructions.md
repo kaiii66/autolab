@@ -189,7 +189,7 @@ LOOP FOREVER:
 8. **Keep the best**: If any experiment improved the metric, copy the winning code back, commit, and `git push`. Always push after committing.
 9. **Repeat** with a new batch informed by the results.
 
-**Timeout**: If a run exceeds 10 minutes, treat as failure. **Crashes**: Check logs, fix trivial issues and resubmit, or log as `crash`.
+**Timeout**: If a run exceeds 10 minutes after STARTED, treat as failure. Jobs in SETTING_UP may take longer (model downloads, dependency installs) — wait for them to finish, do NOT tear down clusters mid-setup. **Never run `sky down` during the experiment loop** — reuse clusters with `sky exec`. **Crashes**: Check logs, fix trivial issues and resubmit, or log as `crash`.
 
 **NEVER STOP**: Do NOT pause to ask the human if you should continue. Work *indefinitely* until manually stopped. If stuck, re-read the code, combine near-misses, try radical changes.
 
