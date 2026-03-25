@@ -4,6 +4,8 @@ Run autonomous AI research experiments on CoreWeave GPUs via [SkyPilot](https://
 
 Point it at any research repo that has a `program.md` describing the research goals, and let an AI agent run parallel experiments autonomously.
 
+https://github.com/user-attachments/assets/2c672b8c-990b-4321-b2f8-e40fc6d3d2cf
+
 ## How it works
 
 1. You provide a research repo (e.g. a training script + `program.md` describing what to optimize)
