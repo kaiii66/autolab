@@ -4,13 +4,24 @@ Run autonomous AI research experiments on CoreWeave GPUs via [SkyPilot](https://
 
 Point it at any research repo that has a `program.md` describing the research goals, and let an AI agent run parallel experiments autonomously.
 
+## Results
+
+Built at the CoreWeave AI Hackathon (March 2026). We pointed autolab at vLLM inference optimization and let it run overnight:
+
+| Model | Experiments | Throughput Gain | Key Wins |
+|---|---|---|---|
+| **Qwen3.5-35B-A3B** (MoE) | 175 | **+35.6%** (5.25 → 7.12 req/s) | Format fix via chat completions, 160 seqs, 0.94 gpu-util, MoE chunk tuning |
+| **Qwen3-4B** | 100 | **+19.2%** (10.24 → 12.21 req/s) | CUDA graph compile sizes, seq count matching |
+
+The 35B agent autonomously discovered that vLLM 0.18 ignores `enable_thinking=false` on the completions endpoint, built a workaround using the chat API, and unlocked a config space that was previously blocked by format validation failures — all without human guidance.
+
 https://github.com/user-attachments/assets/2c672b8c-990b-4321-b2f8-e40fc6d3d2cf
 
 ## How it works
 
 1. You provide a research repo (e.g. a training script + `program.md` describing what to optimize)
 2. `setup.sh` clones the repo, wires up SkyPilot + W&B + Weave
-3. An AI agent (Claude Code, Codex, etc.) reads `instructions.md` and `program.md`, then runs experiments in a loop — launching parallel GPU jobs, tracking results, and iterating
+3. An AI agent (Claude Code) reads `instructions.md` and `program.md`, then runs experiments in a loop — launching parallel GPU jobs, tracking results, and iterating
 
 ## Prerequisites
 
@@ -29,23 +40,39 @@ The `examples/` folder has ready-to-use configs:
 | Example | Research repo | What it optimizes |
 |---|---|---|
 | **autoresearch** | [karpathy/autoresearch](https://github.com/karpathy/autoresearch) | LLM training — minimize val_bpb |
-| **autoinference** | (your repo) | LLM inference — optimize throughput/latency |
+| **autoinference** | [autoinference](https://github.com/bkates-cw/autoinference) | LLM inference — optimize vLLM throughput on H100s |
 
-To use an example, either copy its config or pass `--example` to Docker:
+To use an example, either copy its config or pass `EXAMPLE` to Docker:
+
+### autoresearch (LLM training)
 
 ```bash
-# Option A: copy config locally
-cp examples/autoresearch/config.env config.env
-# edit config.env — set your W&B keys
-
-# Option B: pass as env var to Docker (no config.env needed)
 docker run -it \
+  -v ~/.ssh/id_ed25519:/home/autolab/.ssh-mount/id_ed25519:ro \
+  -v ~/.ssh/id_ed25519.pub:/home/autolab/.ssh-mount/id_ed25519.pub:ro \
+  -v ~/.kube:/home/autolab/.kube:ro \
   -e EXAMPLE=autoresearch \
   -e ANTHROPIC_API_KEY -e WANDB_API_KEY \
   -e WANDB_ENTITY=your-entity \
-  ...
+  -e KUBECONFIG=/home/autolab/.kube/your-kubeconfig \
   autolab
 ```
+
+### autoinference (vLLM serving)
+
+```bash
+docker run -it \
+  -v ~/.ssh/id_ed25519:/home/autolab/.ssh-mount/id_ed25519:ro \
+  -v ~/.ssh/id_ed25519.pub:/home/autolab/.ssh-mount/id_ed25519.pub:ro \
+  -v ~/.kube:/home/autolab/.kube:ro \
+  -e EXAMPLE=autoinference \
+  -e ANTHROPIC_API_KEY -e WANDB_API_KEY \
+  -e WANDB_ENTITY=your-entity \
+  -e KUBECONFIG=/home/autolab/.kube/your-kubeconfig \
+  autolab
+```
+
+See [examples/autoinference/](examples/autoinference/) for base image setup that cuts experiment startup from ~10 min to ~30 sec.
 
 ## Quick start
 
@@ -103,7 +130,8 @@ Run the agent in a container with full permissions — no interactive approval n
 docker build -t autolab .
 
 docker run -it \
-  -v ~/.ssh:/home/autolab/.ssh:ro \
+  -v ~/.ssh/id_ed25519:/home/autolab/.ssh-mount/id_ed25519:ro \
+  -v ~/.ssh/id_ed25519.pub:/home/autolab/.ssh-mount/id_ed25519.pub:ro \
   -v /path/to/kube-configs:/home/autolab/.kube:ro \
   -v $(pwd)/config.env:/home/autolab/app/config.env:ro \
   -e ANTHROPIC_API_KEY \
