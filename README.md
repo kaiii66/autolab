@@ -4,6 +4,8 @@ Run autonomous AI research experiments on CoreWeave GPUs via [SkyPilot](https://
 
 Point it at any research repo that has a `program.md` describing the research goals, and let an AI agent run parallel experiments autonomously.
 
+https://github.com/user-attachments/assets/2c672b8c-990b-4321-b2f8-e40fc6d3d2cf
+
 ## How it works
 
 1. You provide a research repo (e.g. a training script + `program.md` describing what to optimize)
@@ -87,6 +89,14 @@ docker run -it \
 The container handles all setup automatically — clones the research repo, configures SkyPilot + W&B, and launches Claude Code in headless mode.
 
 Weave session traces go to the `WEAVE_PROJECT` set in `config.env`, keeping autonomous runs separate from your local Claude Code traces.
+
+## Example: RL training with ART
+
+[ART](https://github.com/OpenPipe/ART) (Autonomous Research Tool) is a framework for RL fine-tuning of language models using GRPO. It pairs well with autolab — use ART to scaffold your training script, then let autolab iterate on it across CoreWeave GPUs.
+
+1. Generate an RL training script using the [train-rl skill](https://github.com/OpenPipe/ART/blob/main/.agents/skills/train-rl/SKILL.md)
+2. Add a `program.md` describing what to optimize (e.g., reward function, hyperparameters)
+3. Push to a git repo and point autolab at it via `RESEARCH_REPO` in `config.env`
 
 ## Useful commands
 
